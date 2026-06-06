@@ -10,11 +10,12 @@ import (
 
 type Value struct {
 	mu          sync.Mutex
-	value       interface{}
+	value       any
 	readRunning int32
+	storeGen    atomic.Uint64
 }
 
-func (s *Value) Load() interface{} {
+func (s *Value) Load() any {
 	if atomic.SwapInt32(&s.readRunning, 1) == 1 {
 		panic("another load is running")
 	}
@@ -30,7 +31,12 @@ func (s *Value) Load() interface{} {
 
 func (s *Value) Store(v interface{}) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.value = v
+	s.mu.Unlock()
+
+	s.storeGen.Add(1)
+}
+
+func (s *Value) Generation() uint64 {
+	return s.storeGen.Load()
 }
